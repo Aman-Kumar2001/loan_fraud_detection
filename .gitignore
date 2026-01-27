@@ -5,3 +5,6 @@ data/raw/*
 data/processed/*
 models/model_registry/*
 notebooks/.ipynb_checkpoints
+.vs/
+.vscode/
+venv/
