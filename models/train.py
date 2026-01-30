@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import psycopg2
 from dotenv import load_dotenv
 import os
@@ -45,6 +46,10 @@ X_train, X_test, y_train, y_test = train_test_split(
 model = LogisticRegression(class_weight="balanced", max_iter=1000)
 model.fit(X_train, y_train)
 
-y_pred = model.predict(X_test)
+y_prob = model.predict_proba(X_test)[:,1]
 
-print(classification_report(y_test, y_pred))
+thresholds = [0.46, 0.47, 0.48, 0.49, 0.5]
+for val in thresholds:
+    y_pred = (y_prob > val).astype(int)
+    print("Classification report for :", val, "\n" )
+    print(classification_report(y_test, y_pred))
