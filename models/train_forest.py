@@ -16,16 +16,19 @@ X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=y
 )
 
-rf_model = RandomForestClassifier(n_estimators = 100, max_depth=None, min_samples_leaf= 5, class_weight="balanced", random_state=42)
+rf_model = RandomForestClassifier(n_estimators = 100,  class_weight="balanced", random_state=42)
+#rf_model = RandomForestClassifier(n_estimators = 300, max_depth=None, min_samples_leaf= 5, class_weight="balanced", random_state=42)
 
 
 
-parameters = {
-    "n_estimators" : [100, 200, 300, 500],
-    "max_depth" : [None, 10, 20],
-    "min_samples_leaf" : [1, 5, 10],
-    "class_weight" : ["balanced", {0:1,1:5}]
-}
+# parameters = {
+#     "n_estimators" : [200, 300, 500, 800],
+#     "max_depth" : [10, 20, 25, 30],
+#     "min_samples_leaf" : [1, 5, 10],
+#     "class_weight" : ["balanced", {0:1,1:5}]
+# }
+
+# print("searching for best params")
 
 # search = RandomizedSearchCV(
 #     estimator=rf_model,
@@ -43,6 +46,10 @@ parameters = {
 
 rf_model.fit(X_train, y_train)
 
-pred = rf_model.predict(X_test)
+prob = rf_model.predict_proba(X_test)[:,1]
 
-print(classification_report(y_test, pred))
+for val in [0.5, 0.3, 0.1, 0.05, 0.02, 0.01]:
+    pred = (prob > val).astype(int)
+    print(classification_report(y_test, pred))
+
+
