@@ -15,7 +15,7 @@ conn = psycopg2.connect(
 cur = conn.cursor()
 
 # Reading a Small sample first
-df = pd.read_csv("data/raw/paysim.csv", nrows=100000)
+df = pd.read_csv("data/raw/paysim.csv",nrows=500000)
 
 # Looping over rows
 for _, row in df.iterrows():
