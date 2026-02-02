@@ -1,12 +1,15 @@
 INSERT INTO transaction_features (
     transaction_id,
     sender_txn_count_24h,
+    sender_txn_count_1h,
     sender_avg_amount_24h,
     time_since_last_txn,
     receiver_txn_count_24h,
     is_new_sender,
     amount_to_sender_avg_ratio,
-    balance_drain_ratio
+    amount_change_ratio,
+    balance_drain_ratio,
+    is_time_compressed
 )
 SELECT
     t.transaction_id,
@@ -17,6 +20,13 @@ SELECT
         ORDER BY t.step
         RANGE BETWEEN 24 PRECEDING AND CURRENT ROW
     ) AS sender_txn_count_24h,
+
+    /* Sender txn count (1h) – burst feature */
+    COUNT(*) OVER (
+        PARTITION BY t.sender_id
+        ORDER BY t.step
+        RANGE BETWEEN 1 PRECEDING AND CURRENT ROW
+    ) AS sender_txn_count_1h,
 
     /* Sender avg amount (24h) */
     AVG(t.amount) OVER (
@@ -63,10 +73,32 @@ SELECT
              )
     END AS amount_to_sender_avg_ratio,
 
+    /* Amount change vs last txn (key feature) */
+    CASE
+        WHEN LAG(t.amount) OVER (
+            PARTITION BY t.sender_id
+            ORDER BY t.step
+        ) = 0 THEN NULL
+        ELSE t.amount /
+             LAG(t.amount) OVER (
+                 PARTITION BY t.sender_id
+                 ORDER BY t.step
+             )
+    END AS amount_change_ratio,
+
     /* Balance drain ratio */
     CASE
         WHEN t.old_balance_sender = 0 THEN NULL
         ELSE t.amount / t.old_balance_sender
-    END AS balance_drain_ratio
+    END AS balance_drain_ratio,
+
+    /* Time compression flag */
+    CASE
+        WHEN (t.step - LAG(t.step) OVER (
+            PARTITION BY t.sender_id
+            ORDER BY t.step
+        )) <= 1 THEN TRUE
+        ELSE FALSE
+    END AS is_time_compressed
 
 FROM transactions t;
