@@ -11,3 +11,4 @@ matplotlib
 seaborn
 optuna
 xgboost
+imblearn

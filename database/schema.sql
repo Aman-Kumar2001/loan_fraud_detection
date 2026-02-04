@@ -13,14 +13,6 @@ CREATE TABLE transactions (
 );
 
 
-CREATE TABLE fraud_labels (
-    transaction_id BIGINT PRIMARY KEY,
-    is_fraud BOOLEAN,
-    is_flagged BOOLEAN,
-    labeled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (transaction_id) REFERENCES transactions(transaction_id)
-);
-
 
 CREATE TABLE transaction_features (
     transaction_id BIGINT PRIMARY KEY,

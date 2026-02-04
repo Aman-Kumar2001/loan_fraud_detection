@@ -4,6 +4,9 @@ import psycopg2
 import pandas as pd
 from psycopg2.extras import execute_values
 
+# -------------------------------
+# DB connection
+# -------------------------------
 load_dotenv()
 
 conn = psycopg2.connect(
@@ -14,31 +17,33 @@ conn = psycopg2.connect(
 )
 
 cur = conn.cursor()
-conn.autocommit = False
+conn.autocommit = False   # IMPORTANT
+
 
 CSV_PATH = "data/raw/paysim.csv"
 CHUNK_SIZE = 5000
 
-print("Starting batch ingestion...")
+print("Starting full CSV ingestion...")
 
+# Reading and injecting values in chunks
 for chunk in pd.read_csv(CSV_PATH, chunksize=CHUNK_SIZE):
 
-    # -------------------------------
-    # Insert transactions + RETURN ids
-    # -------------------------------
+    # ---- Insert transactions ----
     transactions_data = [
         (
-            row.step,
-            row.type,
-            row.amount,
-            row.nameOrig,
-            row.nameDest,
-            row.oldbalanceOrig,
-            row.newbalanceOrig,
-            row.oldbalanceDest,
-            row.newbalanceDest
+            int(r.step),
+            r.type,
+            float(r.amount),
+            r.nameOrig,
+            r.nameDest,
+            float(r.oldbalanceOrig),
+            float(r.newbalanceOrig),
+            float(r.oldbalanceDest),
+            float(r.newbalanceDest),
+            int(r.isFraud),
+            int(r.isFlaggedFraud)
         )
-        for row in chunk.itertuples(index=False)
+        for r in chunk.itertuples(index=False)
     ]
 
     execute_values(
@@ -53,7 +58,9 @@ for chunk in pd.read_csv(CSV_PATH, chunksize=CHUNK_SIZE):
             old_balance_sender,
             new_balance_sender,
             old_balance_receiver,
-            new_balance_receiver
+            new_balance_receiver,
+            is_fraud_raw,
+            is_flagged_raw
         )
         VALUES %s
         RETURNING transaction_id
@@ -61,34 +68,9 @@ for chunk in pd.read_csv(CSV_PATH, chunksize=CHUNK_SIZE):
         transactions_data
     )
 
-    transaction_ids = [row[0] for row in cur.fetchall()]
-
-    # -------------------------------
-    # Insert fraud labels using ids
-    # -------------------------------
-    fraud_data = [
-        (
-            tx_id,
-            bool(row.isFraud),
-            bool(row.isFlaggedFraud)
-        )
-        for tx_id, row in zip(transaction_ids, chunk.itertuples(index=False))
-    ]
-
-
-    execute_values(
-        cur,
-        """
-        INSERT INTO fraud_labels (transaction_id, is_fraud, is_flagged)
-        VALUES %s
-        """,
-        fraud_data
-    )
-
-    conn.commit()
-    print(f"Inserted {len(chunk)} rows...")
+conn.commit()
 
 cur.close()
 conn.close()
 
-print("✅ Full CSV ingestion completed successfully.")
+print("Full CSV ingestion completed successfully.")

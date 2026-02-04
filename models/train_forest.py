@@ -2,12 +2,14 @@ from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, average_precision_score
 from schema.fetch_df import fetch_df
+from imblearn.over_sampling import SMOTE
 
 
 df = fetch_df()
 print(df.shape)
 
 df["time_since_last_txn"] = df["time_since_last_txn"].fillna(999)
+df.fillna(0, inplace=True)
 
 X = df.drop(columns=["is_fraud"])
 y = df["is_fraud"]
@@ -17,8 +19,11 @@ X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=y
 )
 
-rf_model = RandomForestClassifier(n_estimators = 200, n_jobs=-1, class_weight="balanced", random_state=42)
-#rf_model = RandomForestClassifier(n_estimators = 300, max_depth=None, min_samples_leaf= 5, class_weight="balanced", random_state=42)
+# smote = SMOTE(random_state=42)
+# X_train_res, y_train_res = smote.fit_resample(X_train, y_train)
+
+#rf_model = RandomForestClassifier(n_estimators = 200, n_jobs=-1, class_weight="balanced", random_state=42)
+rf_model = RandomForestClassifier(n_estimators = 300, max_depth=None, min_samples_leaf= 5,  random_state=42)
 
 
 

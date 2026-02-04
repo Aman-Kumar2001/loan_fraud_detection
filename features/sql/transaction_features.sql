@@ -9,7 +9,8 @@ INSERT INTO transaction_features (
     amount_to_sender_avg_ratio,
     amount_change_ratio,
     balance_drain_ratio,
-    is_time_compressed
+    is_time_compressed,
+    is_transfer_or_cashout
 )
 SELECT
     t.transaction_id,
@@ -21,7 +22,7 @@ SELECT
         RANGE BETWEEN 24 PRECEDING AND CURRENT ROW
     ) AS sender_txn_count_24h,
 
-    /* Sender txn count (1h) – burst feature */
+    /* Sender txn count (1h) */
     COUNT(*) OVER (
         PARTITION BY t.sender_id
         ORDER BY t.step
@@ -58,13 +59,13 @@ SELECT
         ELSE FALSE
     END AS is_new_sender,
 
-    /* Amount deviation from sender avg */
+    /* Amount / sender avg (sentinel-safe) */
     CASE
         WHEN AVG(t.amount) OVER (
             PARTITION BY t.sender_id
             ORDER BY t.step
             RANGE BETWEEN 24 PRECEDING AND CURRENT ROW
-        ) = 0 THEN NULL
+        ) = 0 THEN -1
         ELSE t.amount /
              AVG(t.amount) OVER (
                  PARTITION BY t.sender_id
@@ -73,12 +74,16 @@ SELECT
              )
     END AS amount_to_sender_avg_ratio,
 
-    /* Amount change vs last txn (key feature) */
+    /* Amount change vs last txn (sentinel-safe) */
     CASE
         WHEN LAG(t.amount) OVER (
             PARTITION BY t.sender_id
             ORDER BY t.step
-        ) = 0 THEN NULL
+        ) IS NULL THEN -1
+        WHEN LAG(t.amount) OVER (
+            PARTITION BY t.sender_id
+            ORDER BY t.step
+        ) = 0 THEN -1
         ELSE t.amount /
              LAG(t.amount) OVER (
                  PARTITION BY t.sender_id
@@ -86,19 +91,26 @@ SELECT
              )
     END AS amount_change_ratio,
 
-    /* Balance drain ratio */
+    /* Balance drain ratio (sentinel-safe) */
     CASE
-        WHEN t.old_balance_sender = 0 THEN NULL
+        WHEN t.old_balance_sender IS NULL THEN -1
+        WHEN t.old_balance_sender = 0 THEN -1
         ELSE t.amount / t.old_balance_sender
     END AS balance_drain_ratio,
 
-    /* Time compression flag */
+    /* Time compression (burst indicator) */
     CASE
         WHEN (t.step - LAG(t.step) OVER (
             PARTITION BY t.sender_id
             ORDER BY t.step
         )) <= 1 THEN TRUE
         ELSE FALSE
-    END AS is_time_compressed
+    END AS is_time_compressed,
+
+    /* Transaction type prior */
+    CASE
+        WHEN t.transaction_type IN ('TRANSFER', 'CASH_OUT') THEN TRUE
+        ELSE FALSE
+    END AS is_transfer_or_cashout
 
 FROM transactions t;

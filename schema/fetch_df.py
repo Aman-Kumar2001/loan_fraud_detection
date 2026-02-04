@@ -17,21 +17,25 @@ def fetch_df():
     query = """
     SELECT
         f.sender_txn_count_24h,
-        f.sender_avg_amount_24h,
         f.sender_txn_count_1h,
-        f.time_since_last_txn,
         f.sender_avg_amount_24h,
+        f.time_since_last_txn,
         f.receiver_txn_count_24h,
         f.amount_to_sender_avg_ratio,
         f.balance_drain_ratio,
         f.amount_change_ratio,
         f.is_time_compressed,
         f.is_new_sender,
-        l.is_flagged,
-        l.is_fraud
+        f.is_transfer_or_cashout,
+
+        /* Labels */
+        COALESCE(l.is_flagged, FALSE) AS is_flagged,
+        COALESCE(l.is_fraud, FALSE)   AS is_fraud
+
     FROM transaction_features f
-    JOIN fraud_labels l
+    LEFT JOIN fraud_labels l
     ON f.transaction_id = l.transaction_id;
+
     """
 
     df = pd.read_sql(query, conn)
